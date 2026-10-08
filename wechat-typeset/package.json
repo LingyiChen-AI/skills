@@ -1,0 +1,10 @@
+{
+  "name": "wechat-typeset",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "highlight.js": "^11.9.0",
+    "linkedom": "^0.18.0",
+    "markdown-it": "^14.1.0"
+  }
+}
