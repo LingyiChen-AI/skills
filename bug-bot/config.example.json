@@ -6,34 +6,20 @@
     "workspaces_root": "~/.lark-channel-workspaces/claude",
     "scheduled_task": "LarkChannelBridge.Bot.claude"
   },
+  "sql_window": {
+    "skill_dir": "~/.claude/skills/sql-window"
+  },
   "projects": {
     "my-service": {
       "repo": "git@gitee.com:<org>/my-service.git",
       "branch_glob": "release/*",
       "rules_file": "AGENTS.md",
       "description": "一句话说明项目，机器人据此判断 bug 属于哪个项目",
-      "dbs": ["my_config", "sr_result"]
+      "dbs": ["my_config"]
     }
   },
   "dbs": {
-    "my_config": {
-      "kind": "mysql",
-      "database": "my_config",
-      "dsn": {"file": "C:/path/to/数据库连接.local.md", "section": "### 生产环境", "db": "my_config"}
-    },
-    "sr_result": {
-      "kind": "starrocks",
-      "database": "result",
-      "dsn": {"file": "C:/path/to/数据库连接.local.md", "section": "### 生产环境", "db": "result"}
-    }
-  },
-  "tunnels": {
-    "jump": "<user>@<跳板机地址>",
-    "key": "C:/path/to/ssh_private_key",
-    "local_ports": {
-      "<私网 MySQL 主机名>": 3316,
-      "<私网 StarRocks 主机名>": 9040
-    }
+    "my_config": {"kind": "mysql", "database": "my_config"}
   },
   "groups": {
     "oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {

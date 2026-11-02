@@ -2,17 +2,17 @@
 
   python bugbot.py list
   python bugbot.py add-project <名字> --repo <git url> [--branch-glob 'release/*'] [--rules AGENTS.md] [--desc ...] [--dbs a,b]
-  python bugbot.py add-db <别名> --kind mysql|starrocks --database <库> --dsn-file <md> --dsn-db <DSN 里的库名>
-                         [--dsn-section '### 生产环境'] [--local-port 3317] [--projects a,b]
+  python bugbot.py add-db <别名> --database <库> [--projects a,b]     （生产库经 sql-window 的 SQL 执行窗口查，只支持 MySQL）
   python bugbot.py add-group (--chat-name <群名> | --chat-id oc_xxx) --projects a,b --doc <飞书文档链接> [--slug xxx]
   python bugbot.py remove-group <chat_id>
   python bugbot.py render [--chat-id oc_xxx]
-  python bugbot.py check [--project x]
+  python bugbot.py check [--project x] [--live]    （--live 会在 SQL 群里真发一条 SELECT 1）
   python bugbot.py status
   python bugbot.py restart
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -109,7 +109,9 @@ def cmd_list(cfg, a):
         print(f"  {k:20} {p['repo']}  [{p.get('branch_glob', 'release/*')}]  库: {','.join(p.get('dbs', []))}")
     print("== 数据库 ==")
     for k, d in cfg["dbs"].items():
-        print(f"  {k:20} {d['kind']:10} {d['database']:18} DSN: {d['dsn']['file']} / {d['dsn']['db']}")
+        print(f"  {k:20} {d['kind']:10} {d['database']}")
+    conn = sql_window_conn()
+    print(f"== SQL 执行窗口 ==\n  {conn.get('groupName')} ({conn.get('chatId')}) → {conn.get('botName')}  状态: {conn.get('status')}")
     print("== 群 ==")
     for k, g in cfg["groups"].items():
         print(f"  {g['name']} ({k})  项目: {','.join(g['projects'])}  目录: {g['slug']}\n    文档: {g['doc_url']}")
@@ -136,22 +138,24 @@ def cmd_add_project(cfg, a):
     print("用到它的群需要重新 render：python bugbot.py render")
 
 
+def sql_window_conn():
+    home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
+    p = os.path.join(home, "sql-window", "connection.json")
+    if not os.path.exists(p):
+        raise SystemExit(f"缺少 {p}：先按 sql-window skill 完成首次接通（找到 SQL 群和「SQL执行窗口」机器人）")
+    with open(p, encoding="utf-8-sig") as f:
+        return json.load(f)
+
+
 def cmd_add_db(cfg, a):
-    sys.path.insert(0, SCRIPTS)
-    from prodq import read_dsn
-    spec = {"file": a.dsn_file, "section": a.dsn_section, "db": a.dsn_db}
-    dsn = read_dsn(spec)  # 先验证能读到
-    if a.local_port:
-        cfg["tunnels"]["local_ports"][dsn["host"]] = a.local_port
-    cfg["dbs"][a.alias] = {"kind": a.kind, "database": a.database, "dsn": spec}
+    cfg["dbs"][a.alias] = {"kind": "mysql", "database": a.database}
     for p in split_csv(a.projects):
         if p not in cfg["projects"]:
             raise SystemExit(f"项目 {p} 未登记")
         if a.alias not in cfg["projects"][p]["dbs"]:
             cfg["projects"][p]["dbs"].append(a.alias)
     save_config(cfg)
-    via = f"隧道 127.0.0.1:{cfg['tunnels']['local_ports'][dsn['host']]}" if dsn["host"] in cfg["tunnels"]["local_ports"] else "直连"
-    print(f"已登记库 {a.alias}（{dsn['host']}:{dsn['port']}，{via}）。验证：python prodq.py --db {a.alias} \"SELECT 1\"")
+    print(f"已登记库 {a.alias}（MySQL 库 {a.database}，经 SQL 执行窗口查询）。用到它的群需要重新 render")
 
 
 def resolve_chat(a):
@@ -209,7 +213,6 @@ def cmd_render(cfg, a):
 
 def cmd_check(cfg, a):
     sys.path.insert(0, SCRIPTS)
-    from prodq import connect
     from sync_code import sync
     ok = True
     projects = [a.project] if a.project else list(cfg["projects"])
@@ -221,15 +224,25 @@ def cmd_check(cfg, a):
             ok = False
             print(f"[代码] {name}: 失败 {e}")
         for d in cfg["projects"][name].get("dbs", []):
-            try:
-                c = connect(cfg, d)
-                with c.cursor() as cur:
-                    cur.execute("SELECT 1")
-                c.close()
-                print(f"[库]   {d}: ok")
-            except BaseException as e:  # noqa: BLE001
+            spec = cfg["dbs"].get(d)
+            if not spec or spec.get("kind") != "mysql":
                 ok = False
-                print(f"[库]   {d}: 失败 {e}")
+                print(f"[库]   {d}: 未登记或不是 MySQL（SQL 执行窗口只支持 MySQL）")
+    # SQL 执行窗口：连接配置 + 机器人还在群里（只读，不发消息）
+    try:
+        conn = sql_window_conn()
+        bots = lark_json(["im", "+chat-members-list", "--as", "user", "--chat-id", conn["chatId"],
+                          "--member-types", "bot", "--page-size", "50"])["data"]["bots"]
+        hit = any(b.get("member_id") == conn["botId"] for b in bots)
+        ok = ok and hit and conn.get("status") == "verified"
+        print(f"[SQL]  {conn.get('groupName')} / {conn.get('botName')}: 连接 {conn.get('status')}，机器人{'在群里' if hit else '不在群里'}")
+    except SystemExit as e:
+        ok = False
+        print(f"[SQL]  失败 {e}")
+    if a.live:
+        p = subprocess.run(["node", str(SKILL_DIR / "scripts" / "sqlq.mjs"), "--test"], capture_output=True, encoding="utf-8")
+        print(f"[SQL]  联调 SELECT 1: {'ok' if p.returncode == 0 else '失败'}\n{(p.stdout or p.stderr).strip()[-600:]}")
+        ok = ok and p.returncode == 0
     sys.exit(0 if ok else 1)
 
 
@@ -255,10 +268,7 @@ def main():
     s.add_argument("--branch-glob", default="release/*"); s.add_argument("--rules", default="AGENTS.md")
     s.add_argument("--desc"); s.add_argument("--dbs")
     s = sub.add_parser("add-db")
-    s.add_argument("alias"); s.add_argument("--kind", choices=["mysql", "starrocks"], required=True)
-    s.add_argument("--database", required=True); s.add_argument("--dsn-file", required=True)
-    s.add_argument("--dsn-db", required=True); s.add_argument("--dsn-section", default="### 生产环境")
-    s.add_argument("--local-port", type=int); s.add_argument("--projects")
+    s.add_argument("alias"); s.add_argument("--database", required=True); s.add_argument("--projects")
     s = sub.add_parser("add-group")
     g = s.add_mutually_exclusive_group(required=True)
     g.add_argument("--chat-name"); g.add_argument("--chat-id")
@@ -266,7 +276,7 @@ def main():
     s.add_argument("--slug"); s.add_argument("--no-restart", action="store_true")
     s = sub.add_parser("remove-group"); s.add_argument("chat_id")
     s = sub.add_parser("render"); s.add_argument("--chat-id")
-    s = sub.add_parser("check"); s.add_argument("--project")
+    s = sub.add_parser("check"); s.add_argument("--project"); s.add_argument("--live", action="store_true")
     sub.add_parser("status")
     sub.add_parser("restart")
     a = ap.parse_args()
