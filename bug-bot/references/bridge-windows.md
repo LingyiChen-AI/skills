@@ -16,7 +16,8 @@
 |---|---|---|
 | `lark-channel-bridge start` 报 `错误: 拒绝访问。`（终端里是乱码） | 创建 ONLOGON 计划任务需要管理员 | 管理员终端执行一次；之后用 `bugbot.py restart` |
 | `status` 正常但不回消息，任务 Last Result `-1073741510` | 任务弹出的控制台窗口被关掉（0xC000013A） | 任务动作改成 `conhost.exe --headless ...` |
-| 机器人回复 `Failed to authenticate. API Error: 403 Request not allowed` | 计划任务启动的进程没有代理，直连 Anthropic 被拒 | 把代理设成用户级环境变量 `HTTPS_PROXY/HTTP_PROXY=<本机代理地址>`、`NO_PROXY=localhost,127.0.0.1,::1`（只写在 PowerShell profile 里不够） |
+| 机器人回复 `Failed to authenticate. API Error: 403 Request not allowed` | 计划任务启动的 claude 没有代理，直连 Anthropic 被拒 | 代理写进 `~/.claude/settings.json` 的 `env`（`HTTPS_PROXY/HTTP_PROXY=<本机代理地址>`、`NO_PROXY=localhost,127.0.0.1,::1`），只对 Claude 生效。**不要**设成用户级环境变量，见下一行 |
+| 群里 @ 了没反应，bridge 日志里连 intake 都没有，进程却在、`ws connected` 正常 | 用户级 `HTTPS_PROXY` 让飞书 SDK（`@larksuite/channel`，`respectProxyEnv`，不认 `NO_PROXY`）的长连接也走代理，代理侧半断后收不到推送 | 删掉用户级代理环境变量后重启；确认日志不再出现 `channel: proxy detected`，bridge 进程的 443 连接直连飞书而不是 127.0.0.1 |
 | `start` / `restart` 后起不来：`当前 profile 已有 bridge 进程占用`、`kill ESRCH` | Windows 上进程被杀后不清 `registry/locks/*.meta.json` 和 `registry/processes.json` | `bugbot.py restart`（`scripts/restart-bridge.ps1` 会清理已退出 PID 的记录） |
 | `lark-channel-bridge start` 之后又弹黑窗口、launcher 被改 | `start` 每次重写 launcher.cmd 并重新注册任务 | 不用 `start`；若已执行，管理员终端重建任务：`schtasks /Create /F /SC ONLOGON /RL LIMITED /TN "LarkChannelBridge.Bot.claude" /TR "conhost.exe --headless %USERPROFILE%\.lark-channel\daemon\claude\launcher.cmd"`（cmd 里执行；PowerShell 里把 `%USERPROFILE%` 换成 `$env:USERPROFILE`） |
 | 群消息开头混进「正在定位……」之类的句子 | bridge 纯文本模式把 Claude 所有文字段落拼成一条 | 模板已严禁；仍出现就需要改 bridge 源码（先 fork） |
