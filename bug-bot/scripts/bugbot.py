@@ -3,7 +3,10 @@
   python bugbot.py list
   python bugbot.py add-project <名字> --repo <git url> [--branch-glob 'release/*'] [--rules AGENTS.md] [--desc ...] [--dbs a,b]
   python bugbot.py add-db <别名> --database <库> [--projects a,b]     （生产库经 sql-window 的 SQL 执行窗口查，只支持 MySQL）
-  python bugbot.py add-group (--chat-name <群名> | --chat-id oc_xxx) --projects a,b --doc <飞书文档链接> [--slug xxx]
+  python bugbot.py add-group (--chat-name <群名> | --chat-id oc_xxx) [--projects a,b] [--doc <飞书文档链接>] [--slug xxx]
+                                       （不给 --projects 用 default_projects；不给 --doc 自动新建记录文档）
+  python bugbot.py onboard --chat-id oc_xxx   （机器人在未登记的群里被 @ 时自己调用：自动登记 + 建文档，不重启）
+  python bugbot.py render-default             （生成默认工作目录的 CLAUDE.md，未绑定的群都走这里）
   python bugbot.py remove-group <chat_id>
   python bugbot.py render [--chat-id oc_xxx]
   python bugbot.py check [--project x] [--live]    （--live 会在 SQL 群里真发一条 SELECT 1）
@@ -22,6 +25,7 @@ from _common import CONFIG_PATH, SKILL_DIR, expand, lark_json, load_config, save
 
 SCRIPTS = (SKILL_DIR / "scripts").as_posix()
 TEMPLATE = SKILL_DIR / "assets" / "workspace-CLAUDE.md.tmpl"
+DEFAULT_TEMPLATE = SKILL_DIR / "assets" / "default-CLAUDE.md.tmpl"
 
 
 # ---------- 公共 ----------
@@ -171,27 +175,87 @@ def resolve_chat(a):
     return pick[0]["chat_id"], pick[0]["name"]
 
 
-def cmd_add_group(cfg, a):
-    projects = split_csv(a.projects)
+def check_projects(cfg, projects):
+    if not projects:
+        raise SystemExit("没有指定项目，config.json 里也没有 default_projects")
     for p in projects:
         if p not in cfg["projects"]:
             raise SystemExit(f"项目 {p} 未登记，先 add-project")
+
+
+def create_doc(cfg, name, slug):
+    """新建「BUG自动检测机器人（群名）」飞书文档（用户身份），返回链接。"""
+    _, _, ws_root = bridge_paths(cfg)
+    d = ws_root / slug / "reports"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "_doc_intro.md").write_text(
+        f"「{name}」查 bug 机器人的记录。群里回复 bug 消息并 @机器人，查完后修复建议自动追加到下面。\n", encoding="utf-8")
+    data = lark_json(["docs", "+create", "--as", "user", "--doc-format", "markdown",
+                      "--title", f"BUG自动检测机器人（{name}）", "--content", "@_doc_intro.md"], cwd=str(d))
+    return data["data"]["document"]["url"]
+
+
+def register_group(cfg, chat_id, name, projects, doc=None, slug=None):
+    old = cfg["groups"].get(chat_id, {})
+    slug = slug or old.get("slug") or f"bug-bot-{chat_id[-8:]}"
+    doc = doc or old.get("doc_url") or create_doc(cfg, name, slug)
+    cfg["groups"][chat_id] = {"name": name, "slug": slug, "projects": projects, "doc_url": doc}
+    save_config(cfg)
+    ws = render_group(cfg, chat_id)
+    bind(cfg, chat_id, ws)
+    return ws
+
+
+def cmd_add_group(cfg, a):
+    projects = split_csv(a.projects) or cfg.get("default_projects", [])
+    check_projects(cfg, projects)
     chat_id, name = resolve_chat(a)
     bots = lark_json(["im", "+chat-members-list", "--as", "user", "--chat-id", chat_id, "--member-types", "bot"])["data"]["bots"]
     app_id = bot_app_id(cfg)
     if not any(b.get("app_id") == app_id for b in bots):
         raise SystemExit(f"机器人（{app_id}）不在群「{name}」里，先在飞书里把它拉进群")
-    lark_json(["docs", "+fetch", "--as", "user", "--doc", a.doc])  # 验证文档可访问
-
-    old = cfg["groups"].get(chat_id, {})
-    slug = a.slug or old.get("slug") or f"bug-bot-{chat_id[-8:]}"
-    cfg["groups"][chat_id] = {"name": name, "slug": slug, "projects": projects, "doc_url": a.doc}
-    save_config(cfg)
-    ws = render_group(cfg, chat_id)
-    bind(cfg, chat_id, ws)
-    print(f"群「{name}」({chat_id}) → {ws}")
+    if a.doc:
+        lark_json(["docs", "+fetch", "--as", "user", "--doc", a.doc])  # 验证文档可访问
+    ws = register_group(cfg, chat_id, name, projects, a.doc, a.slug)
+    print(f"群「{name}」({chat_id}) → {ws}\n文档：{cfg['groups'][chat_id]['doc_url']}")
     if not a.no_restart:
         restart_bridge(cfg)
+
+
+def chat_name(chat_id):
+    try:
+        info = lark_json(["api", "GET", f"/open-apis/im/v1/chats/{chat_id}", "--as", "user"])
+        return (info.get("data") or {}).get("name") or chat_id
+    except SystemExit:
+        return chat_id  # 群主不在群里时用户身份读不到群名
+
+
+def cmd_onboard(cfg, a):
+    """未绑定的群走默认工作目录，机器人运行时先调本命令：没登记就自动登记（默认项目 + 新建文档），
+    然后打印该群 CLAUDE.md 的路径。写好的绑定在 bridge 下次重启后生效，在那之前这个群继续走默认目录，流程一样。"""
+    chat_id = a.chat_id
+    if not chat_id.startswith("oc_"):
+        raise SystemExit(f"chat_id 不对：{chat_id}")
+    if chat_id in cfg["groups"]:
+        ws = render_group(cfg, chat_id)
+        print(f"[已登记] {cfg['groups'][chat_id]['name']}")
+    else:
+        projects = cfg.get("default_projects", [])
+        check_projects(cfg, projects)
+        name = chat_name(chat_id)
+        ws = register_group(cfg, chat_id, name, projects)
+        print(f"[新登记] {name}：项目 {','.join(projects)}，记录文档 {cfg['groups'][chat_id]['doc_url']}")
+    print(f"CLAUDE.md: {(ws / 'CLAUDE.md').as_posix()}")
+    print(f"reports 目录: {(ws / 'reports').as_posix()}")
+
+
+def cmd_render_default(cfg, a=None):
+    _, _, ws_root = bridge_paths(cfg)
+    ws = ws_root / "default"
+    ws.mkdir(parents=True, exist_ok=True)
+    text = DEFAULT_TEMPLATE.read_text(encoding="utf-8").replace("{{SCRIPTS}}", SCRIPTS)
+    (ws / "CLAUDE.md").write_text(text, encoding="utf-8")
+    print(f"已生成 {ws / 'CLAUDE.md'}")
 
 
 def cmd_remove_group(cfg, a):
@@ -208,6 +272,8 @@ def cmd_render(cfg, a):
         ws = render_group(cfg, cid)
         bind(cfg, cid, ws)
         print(f"已生成 {ws / 'CLAUDE.md'}")
+    if not a.chat_id:
+        cmd_render_default(cfg)
     print("CLAUDE.md 每次运行时读取，改完不用重启；新增绑定才需要 python bugbot.py restart")
 
 
@@ -272,8 +338,10 @@ def main():
     s = sub.add_parser("add-group")
     g = s.add_mutually_exclusive_group(required=True)
     g.add_argument("--chat-name"); g.add_argument("--chat-id")
-    s.add_argument("--projects", required=True); s.add_argument("--doc", required=True)
+    s.add_argument("--projects"); s.add_argument("--doc")
     s.add_argument("--slug"); s.add_argument("--no-restart", action="store_true")
+    s = sub.add_parser("onboard"); s.add_argument("--chat-id", required=True)
+    sub.add_parser("render-default")
     s = sub.add_parser("remove-group"); s.add_argument("chat_id")
     s = sub.add_parser("render"); s.add_argument("--chat-id")
     s = sub.add_parser("check"); s.add_argument("--project"); s.add_argument("--live", action="store_true")
@@ -283,7 +351,7 @@ def main():
 
     cfg = load_config()
     {
-        "list": cmd_list, "add-project": cmd_add_project, "add-db": cmd_add_db, "add-group": cmd_add_group,
+        "list": cmd_list, "add-project": cmd_add_project, "add-db": cmd_add_db, "add-group": cmd_add_group, "onboard": cmd_onboard, "render-default": cmd_render_default,
         "remove-group": cmd_remove_group, "render": cmd_render, "check": cmd_check, "status": cmd_status,
         "restart": lambda c, _: restart_bridge(c),
     }[a.cmd](cfg, a)

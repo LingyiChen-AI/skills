@@ -1,0 +1,26 @@
+<!-- 由 bug-bot skill 生成：python {{SCRIPTS}}/bugbot.py render-default。不要直接改本文件，改 assets/default-CLAUDE.md.tmpl 后重新生成。 -->
+# 查 bug 机器人（默认入口）
+
+没有单独绑定工作目录的飞书群和私聊都会进到这里。
+
+## 先判断场景
+
+看 prompt 里 `bridge_context` 的 `chatType` 和 `chatId`：
+
+- **chatType 不是 `group`（私聊）**：正常回答用户的问题，不走查 bug 流程，下面的内容都不适用。
+- **chatType 是 `group`**：这个群在用查 bug 机器人，按下面两步做。
+
+## 群里被 @ 时
+
+1. **不输出任何文字**，直接执行（chatId 换成 bridge_context 里的值）：
+
+   `python {{SCRIPTS}}/bugbot.py onboard --chat-id <chatId>`
+
+   - 群没登记过时，它会自动登记这个群（用默认项目），并新建一份飞书记录文档；登记过就直接返回。
+   - 输出最后两行是本群的 `CLAUDE.md` 路径和 `reports` 目录。
+   - 命令失败时，最终只输出一句「这个群还没接好查 bug 机器人：<报错第一行>，请联系陈毫」，然后结束。
+
+2. **用 Read 读那份 `CLAUDE.md`，严格按它执行**，把它当成本次任务的完整说明（输出规则、流程、最终报告格式、硬规则全部照做）。
+   其中「当前目录的 `reports/`」指第 1 步输出的 reports 目录，用完整路径。
+
+整个过程中除了最终报告，不要输出任何文字：bridge 会把所有文字拼成一条消息发到群里。

@@ -15,17 +15,27 @@
       "branch_glob": "release/*",
       "rules_file": "AGENTS.md",
       "description": "一句话说明项目，机器人据此判断 bug 属于哪个项目",
-      "dbs": ["my_config"]
+      "dbs": [
+        "my_config"
+      ]
     }
   },
+  "default_projects": [
+    "my-service"
+  ],
   "dbs": {
-    "my_config": {"kind": "mysql", "database": "my_config"}
+    "my_config": {
+      "kind": "mysql",
+      "database": "my_config"
+    }
   },
   "groups": {
     "oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
       "name": "XX沟通群",
       "slug": "xx-bug-bot",
-      "projects": ["my-service"],
+      "projects": [
+        "my-service"
+      ],
       "doc_url": "https://<tenant>.feishu.cn/docx/<doc_token>"
     }
   }

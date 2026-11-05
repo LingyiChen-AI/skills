@@ -11,6 +11,8 @@
 - [lark-channel-bridge](https://github.com/zarazhangrui/lark-coding-agent-bridge)：把飞书消息桥接到本机 Claude Code，
   每个群绑定一个工作目录。
 - 群工作目录里的 `CLAUDE.md` 由 `assets/workspace-CLAUDE.md.tmpl` 渲染，规定流程、输出格式和硬规则。
+- 没绑定的群走默认工作目录（`assets/default-CLAUDE.md.tmpl`）：机器人先执行 `bugbot.py onboard` 自动登记该群、新建记录文档，再按群的 CLAUDE.md 查 bug。
+  所以**新群只要把机器人拉进去、@它就能用**，想让所有人都能 @ 再在群里发 `/invite group`。
 - `scripts/` 里的运行时脚本：`chat_context.py`（读群聊）、`sync_code.py`（同步最新 release）、
   `sqlq.mjs`（生产只读查询，经 SQL 执行窗口）、`append_bug_doc.py`（写飞书文档）。
 
@@ -38,7 +40,9 @@ cp config.example.json config.json   # 按实际环境填写；config.json 已�
 | `list` | 列出项目、库、群、SQL 执行窗口连接状态 |
 | `add-project` | 登记项目（仓库、release 分支规则、规则文件、用到的库） |
 | `add-db` | 登记生产库（别名 → MySQL 库名） |
-| `add-group` | 给群配机器人：查 chat_id、校验机器人在群里和文档可访问、生成工作目录、绑定、重启 |
+| `add-group` | 给群配机器人：查 chat_id、校验机器人在群里、文档可访问（不给就新建）、生成工作目录、绑定、重启 |
+| `onboard` | 机器人在未登记的群里自动调用：登记 + 建文档，不重启 |
+| `render-default` | 生成默认工作目录的 CLAUDE.md（自助接入入口） |
 | `remove-group` | 解除群绑定 |
 | `render` | 按模板重新生成所有群的 `CLAUDE.md` |
 | `check [--live]` | 自检：同步代码 + SQL 执行窗口连接；`--live` 真发一条 `SELECT 1` |
@@ -50,5 +54,5 @@ cp config.example.json config.json   # 按实际环境填写；config.json 已�
 
 - `sqlq.mjs` 复用 sql-window 的校验：只允许单条 SELECT，必须带成本依据，自动加 `MAX_EXECUTION_TIME(5000)`，
   没写 LIMIT 补 50（上限 200），不许 `SELECT *`；一次只跑一条（串行锁），按请求 ID 幂等发送，超时不重发。
-- 群不加入 bridge 白名单，只有群主（应用创建者）@ 才会触发。
+- 默认只有群主（应用创建者）@ 才会触发；群里发 `/invite group` 把群加入 bridge 白名单后，群里所有人 @ 都能触发（`/remove group` 移除）。
 - 机器人以 `bypassPermissions` 运行，护栏靠脚本和 `CLAUDE.md` 约束。

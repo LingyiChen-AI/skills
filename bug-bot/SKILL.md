@@ -16,7 +16,8 @@ description: Use when 管理飞书群里的「查 bug 机器人」（lark-channe
 - **查 bug 流程模板**：`assets/workspace-CLAUDE.md.tmpl`。改流程只改模板，然后 `bugbot.py render`，所有群一起更新，不用重启。
 
 常见任务：
-- 加项目 / 加库 / 加群 / 改流程 / 查库不通 → `references/management.md`
+- 加群：**不用跑命令**。把机器人拉进群、群主 @ 一次就会自动登记（`onboard`，默认项目 `default_projects`，自动建记录文档）；所有人都能 @ 要在群里发 `/invite group`。指定项目 / 文档才用 `add-group`。
+- 加项目 / 加库 / 改群配置 / 改流程 / 查库不通 → `references/management.md`
 - 机器人不回复、回复报错、重启、Windows 上 bridge 的坑 → `references/bridge-windows.md`
 
 约束：生产只读（只走 `sqlq.mjs`）；机器人只给修复建议、不改代码；重启只用 `bugbot.py restart`，不用 `lark-channel-bridge restart/start`。
