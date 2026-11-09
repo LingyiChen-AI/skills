@@ -69,5 +69,6 @@
 - **谁能触发**：bridge 默认只放行应用创建者（群主），别人 @ 会回一句"尚未加入响应列表"。
   群加入 bridge 白名单后群里所有人 @ 都能触发：在群里发 `/invite group`，或把 chat_id 加进 `~/.lark-channel/config.json` 的 `profiles.claude.access.allowedChats` 后 `bugbot.py restart`；移除用 `/remove group`。
 - **只发结论**：bridge profile 偏好设为纯文本回复、隐藏工具、关闭 COT（私聊也生效）。但 Claude 的所有文字段落都会被拼进最终消息，所以模板里严禁输出进度句。若仍混入，只能改 bridge 源码（纯文本模式下 Claude 也只取 `final_text`），按用户要求要先 fork 到自己仓库再改。
-- **身份**：bridge 让 agent 的 lark-cli 走机器人身份；`chat_context.py`、`append_bug_doc.py` 去掉 bridge 环境变量，改用本机 lark-cli 默认的用户身份（群主本人）读群、写文档。
+- **身份**：bridge 让 agent 的 lark-cli 走机器人身份；`chat_context.py`、`p2p_context.py`、`append_bug_doc.py` 去掉 bridge 环境变量，改用本机 lark-cli 默认的用户身份（群主本人）读群、读私聊、写文档。
+- **读私聊**：`p2p_context.py --trigger <触发消息> --with <姓名>`。脚本自己校验：触发消息发送人必须是群主本人、正文里点了这个名字、按名字唯一找到人且有私聊；默认只读触发消息之前 7 天、最多 50 条（`--include-after` 才读之后的），`--download-dir` 下载截图。任何一条不满足输出 `[拒绝]`，不读。
 - **会话延续**：同一个群的多次 @ 共用一个 Claude 会话（bridge 按群保存 session）。

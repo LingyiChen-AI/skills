@@ -13,7 +13,7 @@
 - 群工作目录里的 `CLAUDE.md` 由 `assets/workspace-CLAUDE.md.tmpl` 渲染，规定流程、输出格式和硬规则。
 - 没绑定的群走默认工作目录（`assets/default-CLAUDE.md.tmpl`）：机器人先执行 `bugbot.py onboard` 自动登记该群、新建记录文档，再按群的 CLAUDE.md 查 bug。
   所以**新群只要把机器人拉进去、@它就能用**，想让所有人都能 @ 再在群里发 `/invite group`。
-- `scripts/` 里的运行时脚本：`chat_context.py`（读群聊）、`sync_code.py`（同步最新 release）、
+- `scripts/` 里的运行时脚本：`chat_context.py`（读群聊）、`p2p_context.py`（读群主在 @ 消息里点名的私聊，自带身份校验）、`sync_code.py`（同步最新 release）、
   `sqlq.mjs`（生产只读查询，经 SQL 执行窗口）、`append_bug_doc.py`（写飞书文档）。
 
 ## 依赖

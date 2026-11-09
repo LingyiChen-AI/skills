@@ -12,7 +12,7 @@ description: Use when 管理飞书群里的「查 bug 机器人」（lark-channe
   依赖：lark-channel-bridge、lark-cli（已登录用户身份）、**sql-window skill**（`~/.codex/sql-window/connection.json` 已接通）。
 - **查生产库**：不直连。`scripts/sqlq.mjs` 复用 sql-window skill，以群主身份把 SQL 发到飞书「研发SQL执行群」，由「SQL执行窗口」机器人执行后读回结果。只支持 MySQL 单条 SELECT。
 - **管理命令**：`python scripts/bugbot.py <子命令>`（`-h` 看参数），路径相对本 skill 目录。命令和字段说明见 `references/management.md`。
-- **机器人运行时脚本**：`scripts/chat_context.py`、`sync_code.py`、`sqlq.mjs`、`append_bug_doc.py`，由生成的 `CLAUDE.md` 调用。
+- **机器人运行时脚本**：`scripts/chat_context.py`、`p2p_context.py`（读群主点名的私聊，自带校验）、`sync_code.py`、`sqlq.mjs`、`append_bug_doc.py`，由生成的 `CLAUDE.md` 调用。
 - **查 bug 流程模板**：`assets/workspace-CLAUDE.md.tmpl`。改流程只改模板，然后 `bugbot.py render`，所有群一起更新，不用重启。
 
 常见任务：
