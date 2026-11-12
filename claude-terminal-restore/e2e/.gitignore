@@ -1,0 +1,5 @@
+bin/
+run-*/
+*.vsix
+e2e-config.json
+*.log

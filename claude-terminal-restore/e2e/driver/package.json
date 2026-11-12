@@ -1,0 +1,18 @@
+{
+  "name": "ctr-e2e-driver",
+  "displayName": "ctr e2e driver",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "files": [
+    "extension.js",
+    "e2e-config.json"
+  ]
+}

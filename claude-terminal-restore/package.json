@@ -1,0 +1,67 @@
+{
+  "name": "claude-terminal-restore",
+  "displayName": "Claude 终端恢复",
+  "description": "自动识别 VS Code 终端里的 Claude Code 会话，记住关闭那一刻还开着的；重开窗口时自动在原目录、按原启动参数和权限模式 claude --resume。自己叉掉的不再恢复。",
+  "version": "0.6.0",
+  "publisher": "local",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeRestore.newTerminal",
+        "title": "新建 Claude 终端",
+        "category": "Claude"
+      },
+      {
+        "command": "claudeRestore.restore",
+        "title": "恢复上次的 Claude 会话",
+        "category": "Claude"
+      },
+      {
+        "command": "claudeRestore.forget",
+        "title": "清空这个窗口的 Claude 会话记录",
+        "category": "Claude"
+      }
+    ],
+    "configuration": {
+      "title": "Claude 终端恢复",
+      "properties": {
+        "claudeRestore.command": {
+          "type": "string",
+          "default": "claude",
+          "description": "启动 Claude Code 的命令，可加固定参数，例如 claude --model opus。"
+        },
+        "claudeRestore.shellPath": {
+          "type": "string",
+          "default": "",
+          "description": "恢复 Claude 会话时开终端用的 shell，留空跟随 VS Code 默认终端（WSL 也可以）。例如 powershell.exe。"
+        },
+        "claudeRestore.startupRestore": {
+          "type": "string",
+          "enum": [
+            "silent",
+            "ask",
+            "off"
+          ],
+          "enumDescriptions": [
+            "静默恢复：打开窗口时直接把上次关闭时开着的 Claude 会话全部恢复，不弹窗",
+            "弹出勾选列表，选要恢复的",
+            "不自动恢复，需要时用命令「Claude: 恢复上次的 Claude 会话」"
+          ],
+          "default": "silent",
+          "description": "打开窗口时怎么恢复上次关闭时还开着的 Claude 会话。"
+        }
+      }
+    }
+  }
+}
