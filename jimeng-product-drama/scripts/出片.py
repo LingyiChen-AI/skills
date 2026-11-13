@@ -33,10 +33,21 @@ state = json.loads(state_f.read_text(encoding="utf-8")) if state_f.exists() else
 save = lambda: state_f.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 segs = cfg["segments"] if a.ids == ["all"] else [s for s in cfg["segments"] if str(s["id"]) in a.ids]
-refs = [str((root / r).resolve()) for r in cfg["refs"]]
-for r in refs:
-    if not Path(r).exists():
-        raise SystemExit(f"参考图不存在：{r}")
+
+
+def seg_refs(s):
+    """段里写了 refs 就用段自己的（每段出场角色不同），否则用全局 refs。顺序即 @图片1..N。"""
+    paths = [str((root / r).resolve()) for r in s.get("refs", cfg.get("refs", []))]
+    for r in paths:
+        if not Path(r).exists():
+            raise SystemExit(f"段{s['id']:02d} 参考图不存在：{r}")
+    if len(paths) > 9:
+        raise SystemExit(f"段{s['id']:02d} 参考图 {len(paths)} 张，超过 9 张上限")
+    return paths
+
+
+for s in segs:
+    seg_refs(s)  # 提交前先把所有段的参考图检查一遍，缺图直接停
 rate = cfg.get("credit_per_second", 6)
 
 pending = {}
@@ -55,7 +66,7 @@ for s in segs:
     if len(prompt) > 1500:
         raise SystemExit(f"{key} prompt {len(prompt)} 字，超过 1500 字上限")
     cmd = ["multimodal2video"]
-    for r in refs:
+    for r in seg_refs(s):
         cmd += ["--image", r]
     cmd += ["--prompt", prompt, "--duration", str(s["duration"]), "--ratio", cfg.get("ratio", "9:16"),
             "--video_resolution", cfg.get("video_resolution", "720p"),
