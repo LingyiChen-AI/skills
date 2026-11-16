@@ -1,6 +1,6 @@
 ---
 name: proposal-writer
-description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场站效果图与导视、工服 / 手提袋 / 纸杯等 VI 物料、办公室形象墙与门牌、集装箱 / 围挡 / 户外广告面、改稿意见），按润杰超充（重卡超充）的需求单格式出 Word 和 PDF，自动套用品牌档案（logo、VI 色、定位语、广告语、站点导视）；也能写带配图和统计图的企划书、活动 / 营销方案、超充站可研。用户说「做个宣传页」「出个效果图需求」「给设计写需求」「导视 / VI / 门牌 / 广告面怎么做」「写修改意见给设计」，或「出一份企划书 / 活动策划 / 营销方案」时使用。
+description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场站效果图与导视、工服 / 手提袋 / 纸杯等 VI 物料、办公室形象墙与门牌、集装箱 / 围挡 / 户外广告面、改稿意见），按甲方品牌部惯用的需求单格式出 Word 和 PDF，自动套用品牌档案（logo、VI 色、定位语、广告语、站点导视）；也能写带配图和统计图的企划书、活动 / 营销方案、超充站可研。用户说「做个宣传页」「出个效果图需求」「给设计写需求」「导视 / VI / 门牌 / 广告面怎么做」「写修改意见给设计」，或「出一份企划书 / 活动策划 / 营销方案」时使用。
 ---
 
 # 设计需求单 + 企划书（proposal-writer）
@@ -29,7 +29,7 @@ description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场�
 
 ## A 设计需求单
 
-1. **读品牌档案**：`brands/<brand>/brand.md`，默认润杰超充 → [brands/runjie/brand.md](brands/runjie/brand.md)。
+1. **读品牌档案**：`brands/<brand>/brand.md`；没写 `brand` 时用 `brands/DEFAULT` 里的目录名（仓库自带的是虚构示例品牌 [brands/demo/brand.md](brands/demo/brand.md)）。
    品牌名、logo、VI 色、定位语、广告语、地址、站点和导视套用关系都从这里取，不改写、不编。
 2. **定类型、查必备信息**：[references/brief/types.md](references/brief/types.md)，六类：宣传页、场站效果图 + 导视、VI 物料、
    办公空间、户外广告面、改稿意见。每类有「必须拿到」清单和真实改稿里的「常见返工点」。
@@ -45,13 +45,13 @@ description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场�
 
 样例：[assets/example-brief-flyer/brief.md](assets/example-brief-flyer/brief.md)（购车礼 A4 双面宣传页）、
 [assets/example-brief-station/brief.md](assets/example-brief-station/brief.md)（两个新站的效果图 + 导视）。
-换客户：复制 `brands/runjie/` 为新目录，改 `brand.md`、`rules.json`、logo，frontmatter 写 `brand: 新目录名`。
+换客户：复制 `brands/demo/` 为新目录，改 `brand.md`、`rules.json`、logo，再把 `brands/DEFAULT` 改成新目录名（或在 frontmatter 写 `brand: 新目录名`）。
 
 ## B 企划书
 
 1. **理解需求**：判断企划类型，补齐关键信息；信息不全时带着假设往下做 → [references/workflow.md](references/workflow.md)
    超充站 / 充电站相关先读 [references/industry/supercharging.md](references/industry/supercharging.md)；
-   客户是润杰时，品牌信息同样取自 `brands/runjie/brand.md`（润杰做的是**重卡**超充，客群是司机和车队，不是乘用车）。
+   客户有品牌档案时，品牌信息同样取自 `brands/<brand>/brand.md`；客户做**重卡**超充时，客群是司机和车队，不是乘用车。
 2. **定大纲** → [references/outlines.md](references/outlines.md)（有行业包时用行业包的大纲）。
    要算投资回报的：写 `assumptions.json`，跑 `python <skill_dir>/scripts/finance.py assumptions.json`，
    正文用 `<!-- include: finance.md -->` 插入 → [references/industry/supercharging-finance.md](references/industry/supercharging-finance.md)

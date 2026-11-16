@@ -35,8 +35,25 @@ def read_brief(md_path):
     return "\n".join(out)
 
 
+def default_brand():
+    """brands/DEFAULT 里写默认品牌目录名；没有就取 brands/ 下第一个目录。"""
+    root = os.path.join(SKILL, "brands")
+    p = os.path.join(root, "DEFAULT")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            name = f.read().strip()
+        if name and os.path.isdir(os.path.join(root, name)):
+            return name
+    dirs = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))) if os.path.isdir(root) else []
+    return dirs[0] if dirs else "demo"
+
+
+def brand_name(meta):
+    return meta.get("brand") or default_brand()
+
+
 def brand_dir(meta):
-    return os.path.join(SKILL, "brands", meta.get("brand", "runjie"))
+    return os.path.join(SKILL, "brands", brand_name(meta))
 
 
 def resolve_src(src, meta, base):
@@ -93,7 +110,7 @@ def build(md_path, out_dir=None, formats=("docx", "pdf")):
     os.makedirs(out_dir, exist_ok=True)
     raw = read_brief(md_path)
     meta, blocks = mdparse.parse(raw)
-    report = {"type": meta.get("type", ""), "brand": meta.get("brand", "runjie"), "todos": [],
+    report = {"type": meta.get("type", ""), "brand": brand_name(meta), "todos": [],
               "placeholders": [], "warnings": []}
     lint(meta, raw, report)
 
