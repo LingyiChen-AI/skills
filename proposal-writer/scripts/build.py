@@ -102,6 +102,14 @@ def read_source(md_path):
     return INCLUDE_RE.sub(sub, text)
 
 
+def img_path(base, f):
+    """图片路径：kb:相对路径 指向知识库目录，其余相对 proposal.md。"""
+    if f.startswith("kb:"):
+        import kb
+        return os.path.join(kb.kb_dir() or "", f[3:])
+    return os.path.join(base, f)
+
+
 def image_specs(meta, blocks):
     """封面 + 正文所有 ```image / ![]() 配图，按出现顺序。"""
     specs = []
@@ -121,7 +129,7 @@ def list_images(md_path):
     meta, blocks = mdparse.parse(read_source(md_path))
     out = []
     for s in image_specs(meta, blocks):
-        path = os.path.join(base, s["file"])
+        path = img_path(base, s["file"])
         out.append({"file": s["file"], "save_to": path, "ratio": s.get("ratio", "16:9"),
                     "caption": s.get("caption", ""), "prompt": s.get("prompt", ""), "done": os.path.exists(path)})
     todo = sum(1 for x in out if not x["done"])
@@ -131,7 +139,7 @@ def list_images(md_path):
 def resolve_image(spec, base, report):
     import images
 
-    path = os.path.join(base, spec["file"])
+    path = img_path(base, spec["file"])
     report["images"].append(spec["file"])
     if os.path.exists(path):
         return path

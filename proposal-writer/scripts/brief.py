@@ -59,6 +59,9 @@ def brand_dir(meta):
 def resolve_src(src, meta, base):
     if src.startswith("brand:"):
         return os.path.join(brand_dir(meta), src[len("brand:"):])
+    if src.startswith("kb:"):
+        import kb
+        return os.path.join(kb.kb_dir() or "", src[len("kb:"):])
     return os.path.join(base, src)
 
 

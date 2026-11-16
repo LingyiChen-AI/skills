@@ -1,6 +1,6 @@
 ---
 name: proposal-writer
-description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场站效果图与导视、工服 / 手提袋 / 纸杯等 VI 物料、办公室形象墙与门牌、集装箱 / 围挡 / 户外广告面、改稿意见），按甲方品牌部惯用的需求单格式出 Word 和 PDF，自动套用品牌档案（logo、VI 色、定位语、广告语、站点导视）；也能写带配图和统计图的企划书、活动 / 营销方案、超充站可研。用户说「做个宣传页」「出个效果图需求」「给设计写需求」「导视 / VI / 门牌 / 广告面怎么做」「写修改意见给设计」，或「出一份企划书 / 活动策划 / 营销方案」时使用。
+description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场站效果图与导视、工服 / 手提袋 / 纸杯等 VI 物料、办公室形象墙与门牌、集装箱 / 围挡 / 户外广告面、改稿意见），按甲方品牌部惯用的需求单格式出 Word 和 PDF，自动套用品牌档案（logo、VI 色、定位语、广告语、站点导视）；用户可指定一个文件夹作为知识库，出稿前先查里面的资料、往期稿和素材；也能写带配图和统计图的企划书、活动 / 营销方案、超充站可研。用户说「做个宣传页」「出个效果图需求」「给设计写需求」「导视 / VI / 门牌 / 广告面怎么做」「写修改意见给设计」，或「出一份企划书 / 活动策划 / 营销方案」时使用。
 ---
 
 # 设计需求单 + 企划书（proposal-writer）
@@ -38,6 +38,16 @@ description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场�
    **任何情况下都不能用 Markdown 文件代替 Word 交付。**
    没有 LibreOffice、出不了 PDF 时，用平台的「Word 转 PDF」能力；实在不行就只交 Word，并说明原因。
 
+## 第 0 步：查知识库（两种模式都做）
+
+`python <skill_dir>/scripts/kb.py status`：
+- 已配置 → `kb.py search 关键词…` 找资料、往期稿、价格、logo、二维码，`kb.py read <path>` 读相关文件，
+  图片用 `kb:相对路径` 插进稿子。事实优先级：用户本轮消息 > 知识库 > 品牌档案 > 默认值。
+- 没配置 → 跳过，照常出稿。输出里 `remind: true` 时，在交付消息最后加一句（陈述句）提醒用户可以指定知识库文件夹。
+- 用户在对话里发了文件夹路径 → `kb.py set <路径>`，接着做任务。
+
+细则 → [references/knowledge-base.md](references/knowledge-base.md)
+
 先判断模式：
 
 | 用户要的 | 模式 |
@@ -56,6 +66,7 @@ description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场�
    - 文案（印到画面上的字）和设计说明（`>` 引用块，只给设计师看）分开写
    - 要突出的关键词 `**加粗**`；缺的信息写 `【待补：xxx】`，文末列「需提供的素材」
    - 返工点提前写进设计说明
+   - 知识库里找到的 logo、二维码、产品图、现场照片用 `kb:相对路径` 直接插入
 4. **出稿**：`python <skill_dir>/scripts/brief.py brief.md`（第一次用先跑 `--check`）。`warnings` 不为空就改完重出。
 5. **自检**：`python <skill_dir>/scripts/preview.py <输出.pdf>`，对照 [references/brief/qa.md](references/brief/qa.md)。
 6. **交付**：发 `brief.py` 输出 JSON 里 `outputs` 的 docx 和 pdf 两个文件（不发 brief.md），
@@ -81,7 +92,12 @@ description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场�
 7. **自检**：`preview.py <输出.pdf>`，再对照 [references/qa-checklist.md](references/qa-checklist.md)
 8. **交付**：PDF（和 Word）+ 三五行摘要，列出需要用户确认的假设
 
+知识库里有往期方案、数据表、价格、站点资料时，背景和测算数字优先用它（注明出处文件名），不再用默认假设。
+
 样例：[assets/example/proposal.md](assets/example/proposal.md)（发布会）、
 [assets/example-supercharge/proposal.md](assets/example-supercharge/proposal.md)（超充站建站可研）。
 
 `<skill_dir>` 指本技能所在目录。依赖见 `scripts/requirements.txt`。
+
+**安装后**：告诉用户可以指定一个文件夹当知识库（发路径给 Agent，或运行 `python <skill_dir>/scripts/kb.py set <文件夹路径>`，
+或设环境变量 `PROPOSAL_KB_DIR`）。不配置也能用。

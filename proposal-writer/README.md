@@ -10,6 +10,20 @@
 
 设计目标是放进千问办公「技能扩展」，经「IM 频道 · 飞书」在飞书里 @ 机器人出稿，也可以在 Claude Code 等 Agent 里直接用。
 
+## 安装后：配置知识库（可选）
+
+可以指定一个文件夹当知识库（品牌资料、VI 手册、往期需求单和方案、价格表、站点清单、logo、二维码、产品图……），
+出稿前 Agent 会先到里面搜索、读取相关文件，素材用 `kb:相对路径` 直接插进稿子。不配置也能正常用。
+
+```bash
+python scripts/kb.py set <文件夹路径>     # 配置（也可以在对话里把路径发给 Agent，或设环境变量 PROPOSAL_KB_DIR）
+python scripts/kb.py status              # 查看是否已配置
+python scripts/kb.py search 海报 小程序码  # 按文件名和正文搜索
+python scripts/kb.py read 价格/服务费.xlsx  # 读出全文（docx / pdf / xlsx / csv / md / txt / json）
+```
+
+没配置时，第一次出稿会在交付消息末尾提醒一句，不会打断任务。
+
 ## 设计需求单
 
 ```bash
