@@ -6,10 +6,11 @@
   python kb.py unset                    # 取消配置
   python kb.py list [--limit 200]       # 列出知识库里的文件（相对路径、类型、大小）
   python kb.py search 关键词1 关键词2 …  # 按文件名和正文搜索，返回命中文件和上下文片段
-  python kb.py read <相对路径> [--max 20000]   # 读出一个文件的全文（docx / pdf / xlsx / csv / md / txt / json）
+  python kb.py read <相对路径> [--max 20000]   # 尽量抽出文字；抽不出时返回 abs_path，用自己的能力打开分析
 
 配置读取顺序：环境变量 PROPOSAL_KB_DIR → <skill_dir>/config.json → ~/.proposal-writer/config.json。
-图片（logo、二维码、产品图、现场照片）只按文件名匹配；在 brief.md 里用 kb:相对路径 引用。
+不限文件类型：所有文件都按文件名匹配；docx / pptx / xlsx / pdf / 纯文本还会搜正文。
+其他格式（图片、视频、旧版 doc/ppt、设计源文件……）由 Agent 自己打开分析。稿子里用 kb:相对路径 引用素材。
 """
 import argparse
 import csv
@@ -25,8 +26,7 @@ SKILL = os.path.dirname(HERE)
 SKILL_CFG = os.path.join(SKILL, "config.json")
 HOME_CFG = os.path.join(os.path.expanduser("~"), ".proposal-writer", "config.json")
 
-TEXT_EXT = {".md", ".txt", ".csv", ".json", ".yaml", ".yml"}
-DOC_EXT = {".docx", ".pdf", ".xlsx"}
+# 不限文件类型：所有文件都参与列出和文件名搜索；能抽出文字的（docx / pptx / xlsx / pdf / 各种纯文本）再搜正文。
 IMG_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"}
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".svn"}
 
@@ -153,35 +153,63 @@ def _pdf_text(path):
         return "\n".join(p.get_text() for p in doc)
 
 
+def _pptx_text(path):
+    z = zipfile.ZipFile(path)
+    slides = sorted((n for n in z.namelist() if re.match(r"ppt/slides/slide\d+\.xml$", n)),
+                    key=lambda n: int(re.search(r"(\d+)", n.split("/")[-1]).group(1)))
+    out = []
+    for i, n in enumerate(slides, 1):
+        x = z.read(n).decode("utf-8", "ignore")
+        paras = re.findall(r"<a:p>.*?</a:p>|<a:p .*?</a:p>", x, re.S)
+        lines = ["".join(re.findall(r"<a:t>([^<]*)</a:t>", q)) for q in paras]
+        out.append(f"## 第 {i} 页\n" + "\n".join(l for l in lines if l.strip()))
+    return "\n".join(out)
+
+
+def _plain_text(path):
+    """不认识的扩展名：前 4KB 没有 NUL 字节就当文本读（utf-8 / gbk）。"""
+    with open(path, "rb") as f:
+        head = f.read(4096)
+    if not head or b"\x00" in head:
+        return None
+    with open(path, "rb") as f:
+        raw = f.read(2_000_000)
+    for enc in ("utf-8", "gbk"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", "ignore")
+
+
 def read_text(path, limit=None):
+    """尽量抽出文字。返回 None 表示脚本读不出（图片、视频、旧版 doc/ppt、设计源文件……），要用你自己的能力打开分析。"""
     ext = os.path.splitext(path)[1].lower()
     try:
-        if ext == ".docx":
+        if ext in IMG_EXT:
+            return None
+        if ext in (".docx", ".docm", ".dotx"):
             s = _docx_text(path)
-        elif ext == ".xlsx":
+        elif ext in (".pptx", ".pptm", ".ppsx", ".potx"):
+            s = _pptx_text(path)
+        elif ext in (".xlsx", ".xlsm"):
             s = _xlsx_text(path)
         elif ext == ".pdf":
             s = _pdf_text(path)
         elif ext == ".csv":
             with open(path, encoding="utf-8-sig", errors="ignore") as f:
                 s = "\n".join("\t".join(r) for r in csv.reader(f))
-        elif ext in TEXT_EXT:
-            with open(path, encoding="utf-8", errors="ignore") as f:
-                s = f.read()
         else:
-            return ""
-    except Exception as e:  # noqa: BLE001
-        return f"【读取失败：{e}】"
+            s = _plain_text(path)
+            if s is None:
+                return None
+    except Exception:  # noqa: BLE001
+        return None
     return s[:limit] if limit else s
 
 
 def kind(path):
-    ext = os.path.splitext(path)[1].lower()
-    if ext in IMG_EXT:
-        return "图片"
-    if ext in DOC_EXT or ext in TEXT_EXT:
-        return "文档"
-    return "其他"
+    return "图片" if os.path.splitext(path)[1].lower() in IMG_EXT else "文件"
 
 
 # ---------- 命令 ----------
@@ -198,7 +226,8 @@ def cmd_list(limit):
     d = need_dir()
     rows = []
     for p in walk(d):
-        rows.append({"path": os.path.relpath(p, d).replace("\\", "/"), "type": kind(p), "kb_ref": "kb:" + os.path.relpath(p, d).replace("\\", "/"),
+        rel = os.path.relpath(p, d).replace("\\", "/")
+        rows.append({"path": rel, "ext": os.path.splitext(p)[1].lower() or "(无)", "type": kind(p), "kb_ref": "kb:" + rel,
                      "kb": os.path.getsize(p) // 1024})
     rows.sort(key=lambda r: r["path"])
     return {"dir": os.path.abspath(d), "total": len(rows), "files": rows[:limit]}
@@ -212,8 +241,8 @@ def cmd_search(words, per_file=3, max_files=30):
         rel = os.path.relpath(p, d).replace("\\", "/")
         name_hit = [w for w in words if w.lower() in rel.lower()]
         snippets, body_hit = [], []
-        if kind(p) == "文档":
-            text = read_text(p, 400000)
+        text = read_text(p, 400000)
+        if text:
             low = text.lower()
             for w in words:
                 i = low.find(w.lower())
@@ -224,7 +253,8 @@ def cmd_search(words, per_file=3, max_files=30):
         matched = sorted(set(name_hit) | set(body_hit))
         if matched:
             hits.append({"path": rel, "type": kind(p), "kb_ref": "kb:" + rel, "matched": matched,
-                         "score": len(matched) * 2 + len(name_hit), "snippets": snippets})
+                         "score": len(matched) * 2 + len(name_hit), "snippets": snippets,
+                         "text_extracted": text is not None})
     hits.sort(key=lambda h: -h["score"])
     return {"dir": os.path.abspath(d), "words": words, "total": len(hits), "hits": hits[:max_files]}
 
@@ -257,7 +287,14 @@ def main():
         p = os.path.normpath(os.path.join(d, a.path[3:] if a.path.startswith("kb:") else a.path))
         if not p.startswith(os.path.normpath(d)) or not os.path.isfile(p):
             raise SystemExit(f"知识库里没有这个文件：{a.path}")
-        print(read_text(p, a.max))
+        text = read_text(p, a.max)
+        if text is None:
+            print(json.dumps({"path": a.path, "abs_path": p, "text_extracted": False,
+                              "note": "脚本抽不出文字（图片、视频、旧版 doc/ppt/xls、设计源文件等）。"
+                                      "用你自己的能力打开这个文件分析：图片直接看，其他格式用平台的文件读取 / 转换能力。"},
+                             ensure_ascii=False, indent=2))
+        else:
+            print(text)
         return
     else:
         out = status()

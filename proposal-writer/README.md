@@ -12,14 +12,14 @@
 
 ## 安装后：配置知识库（可选）
 
-可以指定一个文件夹当知识库（品牌资料、VI 手册、往期需求单和方案、价格表、站点清单、logo、二维码、产品图……），
+可以指定一个文件夹当知识库，不限文件类型（ppt、pdf、Word、Excel、图片、视频、设计源文件……），
 出稿前 Agent 会先到里面搜索、读取相关文件，素材用 `kb:相对路径` 直接插进稿子。不配置也能正常用。
 
 ```bash
 python scripts/kb.py set <文件夹路径>     # 配置（也可以在对话里把路径发给 Agent，或设环境变量 PROPOSAL_KB_DIR）
 python scripts/kb.py status              # 查看是否已配置
 python scripts/kb.py search 海报 小程序码  # 按文件名和正文搜索
-python scripts/kb.py read 价格/服务费.xlsx  # 读出全文（docx / pdf / xlsx / csv / md / txt / json）
+python scripts/kb.py read 价格/服务费.xlsx  # 抽文字；抽不出的（图片、视频、源文件）由 Agent 自己打开分析
 ```
 
 没配置时，第一次出稿会在交付消息末尾提醒一句，不会打断任务。
