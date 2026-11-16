@@ -5,6 +5,21 @@ description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场�
 
 # 设计需求单 + 企划书（proposal-writer）
 
+## 交付铁律（每次都适用，优先于下面所有步骤）
+
+1. **交给用户的只能是 Word（.docx）和 PDF**。`brief.md`、`proposal.md`、`.json`、规则文件都是中间稿，**不发给用户，不放进产物**。
+   最后一条消息里要附上这两个文件；没有 Word 和 PDF 就不算完成。
+2. **同一轮里出稿，不要停下来等确认**。缺的信息（字体、二维码、电话、交稿时间……）一律写 `【待补：xxx】` 放进需求单，
+   先出 Word 和 PDF，再在消息里列出待补项。不要说「你先给我 XX，定了我再出」。
+   要给多个版式方向时，在同一份需求单里写成「方案 A / 方案 B」，不要先让用户选。
+3. **用户在对话里给的要求、规则、口径（如「电话留空手填」「加脚注」「先出策划单」），直接写进这份需求单**，
+   不要去改 `brands/`、`references/` 下的文件，也不要另外生成「规则文件」交付。
+   用户明确说「以后都这样」时，照样先出这次的 Word 和 PDF，在消息末尾用一句话说明这条规则已写进本次需求单。
+4. `brief.py` 跑不起来（缺依赖、不能执行 Python）时：先 `pip install -r <skill_dir>/scripts/requirements.txt` 重试；
+   还不行就用平台自带的文档生成能力，按 [references/brief/format.md](references/brief/format.md) 的版式直接做出 Word，再导出 PDF。
+   **任何情况下都不能用 Markdown 文件代替 Word 交付。**
+   没有 LibreOffice、出不了 PDF 时，用平台的「Word 转 PDF」能力；实在不行就只交 Word，并说明原因。
+
 先判断模式：
 
 | 用户要的 | 模式 |
@@ -25,7 +40,8 @@ description: 给设计方写设计需求单（宣传页 / 海报 / 折页、场�
    - 返工点提前写进设计说明
 4. **出稿**：`python <skill_dir>/scripts/brief.py brief.md`（第一次用先跑 `--check`）。`warnings` 不为空就改完重出。
 5. **自检**：`python <skill_dir>/scripts/preview.py <输出.pdf>`，对照 [references/brief/qa.md](references/brief/qa.md)。
-6. **交付**：Word + PDF，消息里列出 `todos`（待补项），提醒用户补齐再转设计。改稿意见可以直接输出一段文字贴群。
+6. **交付**：发 `brief.py` 输出 JSON 里 `outputs` 的 docx 和 pdf 两个文件（不发 brief.md），
+   消息里列出 `todos`（待补项），提醒用户补齐再转设计。改稿意见除了出文件，也可以附一段文字方便贴群。
 
 样例：[assets/example-brief-flyer/brief.md](assets/example-brief-flyer/brief.md)（购车礼 A4 双面宣传页）、
 [assets/example-brief-station/brief.md](assets/example-brief-station/brief.md)（两个新站的效果图 + 导视）。
